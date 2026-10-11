@@ -19710,7 +19710,7 @@ __register("simulator/overhaul/iv-manifest.cjs", function (module, exports, requ
 // Written by build.py.
 module.exports = Object.freeze({
  "build": "Plebtown candidate v2 \u00b7 prepared baseline with candidate v2 rules",
- "buildHash": "0be3daa097f5052d",
+ "buildHash": "23a6ec02448b35a0",
  "snapshotHash": "87012476644f7e7f",
  "snapshotTime": "snapshot taken 2026-09-28T19:34:43Z",
  "candidate": "Candidate v2 (on the prepared baseline P1)",
@@ -23198,6 +23198,16 @@ module.exports = {actionLabelFor, r1PrepareLabel, VERSION, BUILD_ID, KINDS, OPEN
   // and then a dose to go with it, so after the first take the components stop
   // being offered -- they are shown greyed with the reason rather than removed,
   // because a list that shrinks under the cursor reads as a bug.
+  // How many answers take back the carcass items just taken: a first pick still waiting for its second ('take:'), or a
+  // finished take ('take:' then 'also:' or 'only'). Zero once anything else was done after it, since rewinding past a
+  // later choice would silently undo that choice too.
+  function lootRewind() {
+    var a = session ? session.answers().filter(function (x) { return !(typeof x === 'string' && x.charAt(0) === '@'); }) : [];
+    var last = a[a.length - 1], before = a[a.length - 2];
+    if (/^take:/.test(last)) return 1;
+    if ((last === 'only' || /^also:/.test(last)) && /^take:/.test(before)) return 2;
+    return 0;
+  }
   function lootCards(v, loot, p) {
     var offered = {};
     loot.forEach(function (c) { offered[c.fields.firstUid] = c; });
@@ -23219,7 +23229,7 @@ module.exports = {actionLabelFor, r1PrepareLabel, VERSION, BUILD_ID, KINDS, OPEN
       var note = row.component ? (plain(v) ? 'part · ' : 'component · ') + item.condition + '/' + item.max // P2: the glossary's word
         : 'dose · ' + item.rarity;
       var control;
-      if (item.uid === taken) control = btn('Taken', '', 'pt-chosen', true);
+      if (item.uid === taken) control = btn('Taken', '', 'pt-chosen', true) + act('Put back', 'loot-back');
       else if (c) control = btn('Take it', c.key);
       else control = btn('Take it', '', '', true) + '<span class="pt-muted">' +
         (taken && row.component && p.request.component ? (plain(v) ? 'one part per carcass' : 'one component per carcass')
@@ -23293,6 +23303,9 @@ module.exports = {actionLabelFor, r1PrepareLabel, VERSION, BUILD_ID, KINDS, OPEN
     // Shown while it is unclaimed even with nothing takeable: a full reserve and
     // full doses must still let the player see it and make room.
     var unclaimed = v.carcass && !v.carcass.claimed && p && p.kind === 'maintenance';
+    if (v.carcass && v.carcass.claimed && p && p.kind === 'maintenance' && lootRewind())
+      html += '<h3 data-tour="salvage">Carcass · ' + esc(v.carcass.preview.family) + ', ' + esc(v.carcass.preview.quality) + '</h3>' +
+        '<div class="pt-choices">' + act('Put back what you took', 'loot-back') + '<span class="pt-muted">Changed your mind? Return it and choose again.</span></div>';
     if ((loot.length || second.length || unclaimed) && v.carcass) {
       html += '<h3 data-tour="salvage">Carcass · ' + esc(v.carcass.preview.family) + ', ' + esc(v.carcass.preview.quality) + '</h3>' +
         '<p class="pt-muted">' + esc(isV2h() ? 'Take up to two: one part and one dose, or two different doses.' : plain(v) ? CARCASS_TAKE : R.TERMS.Scavenging) + '</p>' + // V2H: shorter // P2: the base text says component and drug, and leaves out taking one item alone
@@ -23917,6 +23930,10 @@ module.exports = {actionLabelFor, r1PrepareLabel, VERSION, BUILD_ID, KINDS, OPEN
     ['4. Repair and rebuild', [], [
       'After Depths 1–5 you are paid and go to maintenance to repair parts, fit a modification and manage your meters.',
       'Every working part is ready again when you leave.'], 'ul'],
+    ['Complications and offers', [], [
+      '<b>Complication:</b> a setback that can hit after the market moves, such as extra Load or a part losing value.',
+      '<b>Offer:</b> a deal you can take or refuse, giving you something for a cost.',
+      'Each set has its own; tap the set’s name to see them.'], 'ul'],
     ['Watch the meters', [], [
       '<b>Debt, Offload, Load and Risk</b> end the run if one reaches its limit.',
       '<b>Offload and Load</b> at 3 or more cost a part 1 Condition each time they rise.',
@@ -24342,7 +24359,10 @@ module.exports = {actionLabelFor, r1PrepareLabel, VERSION, BUILD_ID, KINDS, OPEN
       ['Ready', 'A ready part can act; using it exhausts it until it is readied again.'],
       ['Disabled', 'At 0 Condition a part cannot act, but its value still counts.']]},
     'Quote and target': {text: 'Get your quote up to the target by the end of each Appraisal.'},
-    'This Appraisal’s set': {text: 'Each Appraisal has a set with one rule, shown here; tap the set’s name to see what can happen.'},
+    'This Appraisal’s set': {text: 'Each Appraisal has a set with one rule, shown here.', lines: [
+      ['Complication', 'A setback that can hit after the market moves, such as extra Load or a part losing value.'],
+      ['Offer', 'A deal you can take or refuse, giving you something for a cost.'],
+      ['Details', 'Tap the set’s name to see its complications and offers.']]},
     'Meters': {text: 'These track the state of your run.', lines: [
       ['Credit', 'Your money.'],
       ['Debt, Offload, Load, Risk', 'The run ends if any of them reaches its limit.'],
@@ -25151,7 +25171,7 @@ module.exports = {actionLabelFor, r1PrepareLabel, VERSION, BUILD_ID, KINDS, OPEN
     var acted = event.target.closest('[data-act]');
     if (!acted || acted.disabled) return;
     var name = acted.getAttribute('data-act');
-    if (['fit', 'loot', 'swapPair', 'extractPair', 'prepare-pass', 'bind-pass', 'undo', 'new-run'].indexOf(name) >= 0 || name.indexOf('pick:') === 0) { if (unseen(event)) return; } // P1-09, P2
+    if (['fit', 'loot', 'swapPair', 'extractPair', 'prepare-pass', 'bind-pass', 'undo', 'loot-back', 'new-run'].indexOf(name) >= 0 || name.indexOf('pick:') === 0) { if (unseen(event)) return; } // P1-09, P2
     if (name === 'fit') return choose('modification:' + get('fit-offer') + ':' + get('fit-host'));
     if (name === 'loot') return choose(get('loot-take'));
     if (name === 'swapPair') return choose(get('swap-pair'));
@@ -25199,6 +25219,11 @@ module.exports = {actionLabelFor, r1PrepareLabel, VERSION, BUILD_ID, KINDS, OPEN
       return;
     }
     if (name === 'prepare-pass') { message = ''; return passPrepare(); }
+    if (name === 'loot-back') {
+      message = '';
+      for (var n = lootRewind(); n > 0; n--) view = isV2e() ? session.undo({at: counted()}) : session.undo();
+      return render();
+    }
     if (name === 'undo') {
       message = '';
       // V2E: Undo never rewinds counted time; the game records the count at the restored position.
