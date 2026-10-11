@@ -250,6 +250,7 @@
 #plebtown-pt042 .pt-term details { color: var(--pt-dim); margin-top: 6px; }
 #plebtown-pt042 .pt-term summary { cursor: pointer; }
 #plebtown-pt042 .pt-term details p { margin: 8px 0 0; }
+#plebtown-pt042 .pt-tour-line { margin: 4px 0; } /* V2H: the simpler tour's labelled lines */
 #plebtown-pt042 .pt-tour-table { border-collapse: collapse; width: 100%; font-size: 12px; margin: 8px 0; }
 #plebtown-pt042 .pt-tour-table th, #plebtown-pt042 .pt-tour-table td { border-bottom: 1px solid var(--pt-line); padding: 3px 6px; text-align: left; }
 #plebtown-pt042 .pt-rules h4 { font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
@@ -19709,7 +19710,7 @@ __register("simulator/overhaul/iv-manifest.cjs", function (module, exports, requ
 // Written by build.py.
 module.exports = Object.freeze({
  "build": "Plebtown candidate v2 \u00b7 prepared baseline with candidate v2 rules",
- "buildHash": "c389c02a7195fefc",
+ "buildHash": "0be3daa097f5052d",
  "snapshotHash": "87012476644f7e7f",
  "snapshotTime": "snapshot taken 2026-09-28T19:34:43Z",
  "candidate": "Candidate v2 (on the prepared baseline P1)",
@@ -23897,12 +23898,37 @@ module.exports = {actionLabelFor, r1PrepareLabel, VERSION, BUILD_ID, KINDS, OPEN
       'Time counts only while you decide in an Appraisal. Passing the Appraisal alone is not enough: you must also survive the Viability check. ' +
       'Terms explains the thresholds, prices and dose windows.']
   };
+  // V2H: the creator's simpler Basics (October 11), one sentence per line; Terms keeps the exact numbers.
+  var V2H_HOW = [
+    ['The goal', ['Survive six Depths by getting your <b>quote</b> up to the <b>target</b> in each Appraisal.']],
+    ['1. Read your body', [], [
+      '<b>Value:</b> what a part adds to your quote, counted only while it is installed.',
+      '<b>Condition:</b> how much damage a part can take; at 0 it cannot act, but its value still counts.',
+      '<b>Ready:</b> a ready part can act, and using it exhausts it until it is readied again.'], 'ul'],
+    ['2. Play a cycle', ['Each Appraisal has three cycles.'], [
+      '<b>Prepare:</b> use any preparations, then press Proceed to the action.',
+      '<b>Act:</b> take one action with a ready part, or Hold.',
+      '<b>Settle:</b> the market moves part values, and complications, offers or carcasses may appear.',
+      '<b>Pressure:</b> losses land, each costing a part 1 Condition unless you stop it.']],
+    ['3. Finish the Depth', [], [
+      'Reach the target to pass; a miss adds 1 Risk, and a miss at Depth 6 ends the run.',
+      'Your total Condition must then meet the Viability target, or you pay Credit to make up the difference.',
+      'If you cannot pay, the run ends.'], 'ul'],
+    ['4. Repair and rebuild', [], [
+      'After Depths 1–5 you are paid and go to maintenance to repair parts, fit a modification and manage your meters.',
+      'Every working part is ready again when you leave.'], 'ul'],
+    ['Watch the meters', [], [
+      '<b>Debt, Offload, Load and Risk</b> end the run if one reaches its limit.',
+      '<b>Offload and Load</b> at 3 or more cost a part 1 Condition each time they rise.',
+      '<b>Offload and Load</b> at 3 or more also start a 45-second timer: finish the Appraisal in time or the meter goes up 1.',
+      '<b>Risk</b> rises with each miss, and more Risk means more complications and fewer offers.'], 'ul']
+  ];
   function howToPlayHtml() {
     return '<div class="pt-how-head"><h2 id="pt-how-title" tabindex="-1">How to Play</h2>' +
       '<button type="button" class="pt-action" data-act="how-close">Close</button></div>' +
       '<nav class="pt-controls pt-help-nav" aria-label="Help sections"><button type="button" class="pt-action" data-act="help-play" id="pt-help-play-button" aria-pressed="true" aria-controls="pt-help-play">Basics</button>' +
       '<button type="button" class="pt-action" data-act="help-terms" id="pt-help-terms-button" aria-pressed="false" aria-controls="pt-help-terms">Terms</button></nav>' +
-      '<div class="pt-how-body" id="pt-help-play">' + HOW_TO_PLAY.map(function (s) { return isV2e() && V2E_HOW[s[0]] ? [s[0], V2E_HOW[s[0]]].concat(s.slice(2)) : s; }).map(function (s, i) { // V2E
+      '<div class="pt-how-body" id="pt-help-play">' + (isV2h() ? V2H_HOW : HOW_TO_PLAY).map(function (s) { return isV2e() && !isV2h() && V2E_HOW[s[0]] ? [s[0], V2E_HOW[s[0]]].concat(s.slice(2)) : s; }).map(function (s, i) { // V2E
         return '<section' + (i === 0 ? ' class="pt-how-goal"' : '') + '><h3>' + s[0] + '</h3>' + s[1].map(function (t) { return '<p>' + t + '</p>'; }).join('') +
           (s[2] ? '<' + (s[3] || 'ol') + '>' + s[2].map(function (t) { return '<li>' + t + '</li>'; }).join('') + '</' + (s[3] || 'ol') + '>' : '') + '</section>';
       }).join('') + '</div>' +
@@ -24303,6 +24329,53 @@ module.exports = {actionLabelFor, r1PrepareLabel, VERSION, BUILD_ID, KINDS, OPEN
     'Risk': {after: 'Higher Risk means more complications and fewer set offers. A set multiplies the complication chance: Licensing ×0.8, Chemical ×0.85, Deadline ×1, Operational ×1.05, Credit ×1.15, Market Integrity ×1.35 (never above 100%). ' +
       CXM.SET_RULE + ' The set’s own offer is rolled once when the Appraisal starts. Risk does not change aimed losses.'}
   };
+  // V2H: the creator's simpler tour (October 11): one sentence per line, no chance tables, Condition with the meters.
+  // Each card replaces TOUR_STEPS' card of the same title, keeping its targets; `lines` are [label, sentence] rows under the text.
+  var V2H_TOUR = {
+    'Welcome': {text: 'A quick look at the screen; skip it any time and replay it from How to Play.'},
+    'New run': {text: 'New run starts a fresh game.', lines: [['Replay', 'Type a seed and press Play this seed to play the same game again.']]},
+    'Your body': {text: 'Each card is one part of your body.', lines: [
+      ['Value', 'What the part adds to your quote.'],
+      ['Details', 'Tap a part’s name to see what it does.']]},
+    'Condition and readiness': {text: 'The numbers show the part’s Condition and whether it can act.', lines: [
+      ['Condition', 'How much damage the part can still take, out of its maximum.'],
+      ['Ready', 'A ready part can act; using it exhausts it until it is readied again.'],
+      ['Disabled', 'At 0 Condition a part cannot act, but its value still counts.']]},
+    'Quote and target': {text: 'Get your quote up to the target by the end of each Appraisal.'},
+    'This Appraisal’s set': {text: 'Each Appraisal has a set with one rule, shown here; tap the set’s name to see what can happen.'},
+    'Meters': {text: 'These track the state of your run.', lines: [
+      ['Credit', 'Your money.'],
+      ['Debt, Offload, Load, Risk', 'The run ends if any of them reaches its limit.'],
+      ['Condition', 'Your parts’ total Condition, which must meet the Viability target at the end of each Appraisal.']]},
+    'Offload and Load': {text: 'These two get dangerous at 3.', lines: [
+      ['Damage', 'At 3 or more, each rise costs a part 1 Condition.'],
+      ['Timer', 'At 3 or more, a 45-second timer starts: finish the Appraisal in time or the meter goes up 1.'],
+      ['Assistant', 'At Offload 3 or more, the Assistant takes one of your actions each Appraisal.']]},
+    'Risk': {rows: null, text: 'Risk goes up by 1 each time you miss a target.', lines: [
+      ['Effect', 'More Risk means more complications and fewer offers.'],
+      ['Lower it', 'The Absolution dose takes 1 Risk away.']]},
+    'Losses ahead': {text: 'This box shows the losses coming this Depth, cycle by cycle.', lines: [
+      ['Loss', 'Each loss costs a part 1 Condition unless you stop it.'],
+      ['Aim', 'A part’s aim % is its chance of being hit next; exhausted parts are hit more often.']]},
+    'Your choices': {text: function (v) {
+      var p = v && v.pending;
+      if (!p) return 'Your current decision appears here.';
+      if (p.kind === 'prepare') return 'Use any preparations on the part cards, then press Proceed to the action.';
+      if (p.kind === 'action') return 'Take one action with a ready part, or press Hold.';
+      if (p.offer) return 'This is an offer: take it with its buttons, or refuse it at no cost.';
+      return 'Your current decision is here, with its buttons.';
+    }},
+    'Help': {text: 'How to Play has the basics and a glossary, and can replay this tour.'},
+    'Save or report': {text: 'To report a problem, open Save or report this run and press Copy the whole run.'}
+  };
+  var V2H_TIPS = {
+    carcass: {text: 'Search it and its contents wait for you at maintenance.', lines: [['One per Depth', 'Searching ends this Depth’s search; pass it up and another may or may not come.']]},
+    maintenance: {text: 'You have been paid; get ready for the next Depth here.', lines: [
+      ['Fix', 'Repair parts, lower Load or Offload, and repay or borrow.'],
+      ['Build', 'Fit one modification and swap parts between body and reserve.'],
+      ['Reserve', 'Reserve parts add nothing to your quote until installed.']]},
+    doses: {text: 'Take a dose with its button; each one costs 1 Load.'}
+  };
   // Shown once each, the first time their screen comes up, and never while the main tour is open.
   var TOUR_CONTEXT = [
     {id: 'carcass', title: 'A carcass', at: ['#pt-content [data-tour="question"]'],
@@ -24351,6 +24424,7 @@ module.exports = {actionLabelFor, r1PrepareLabel, VERSION, BUILD_ID, KINDS, OPEN
   var tourOn = function () { return tour.step >= 0 || tour.context !== null; };
   function tourCard() {
     if (tour.step >= 0) {
+      if (isV2h() && V2H_TOUR[TOUR_STEPS[tour.step].title]) return Object.assign({}, TOUR_STEPS[tour.step], V2H_TOUR[TOUR_STEPS[tour.step].title]);
       var step = isV2() && V2_TOUR[TOUR_STEPS[tour.step].title] ? Object.assign({}, TOUR_STEPS[tour.step], V2_TOUR[TOUR_STEPS[tour.step].title]) : TOUR_STEPS[tour.step]; // V2:
       // V2: RB-D, Attention only while the Bud is ready.
       if (isV2e() && V2E_TOUR[step.title]) step = Object.assign({}, step, V2E_TOUR[step.title]); // V2E: the countdown
@@ -24361,7 +24435,7 @@ module.exports = {actionLabelFor, r1PrepareLabel, VERSION, BUILD_ID, KINDS, OPEN
       if (typeof step.text === 'function') { var live = step.text; return Object.assign({}, step, {text: function () { return ready(live.apply(this, arguments)); }}); }
       return step;
     }
-    for (var i = 0; i < TOUR_CONTEXT.length; i++) if (TOUR_CONTEXT[i].id === tour.context) return TOUR_CONTEXT[i];
+    for (var i = 0; i < TOUR_CONTEXT.length; i++) if (TOUR_CONTEXT[i].id === tour.context) return isV2h() && V2H_TIPS[tour.context] ? Object.assign({}, TOUR_CONTEXT[i], V2H_TIPS[tour.context]) : TOUR_CONTEXT[i];
     return null;
   }
   // The first of a step's areas that is on screen now; none (the card shows centred) when all are missing,
@@ -24390,7 +24464,8 @@ module.exports = {actionLabelFor, r1PrepareLabel, VERSION, BUILD_ID, KINDS, OPEN
       '<button type="button" class="pt-action pt-tour-skip" data-act="tour-skip">Skip tutorial</button></div>' +
       // P2: only the words scroll on a short window; the step count, Skip tutorial and Next stay in the card's fixed rows.
       '<div class="pt-tour-body"><h2 id="pt-tour-title" tabindex="-1">' + esc(card.title) + '</h2>' +
-      '<p id="pt-tour-text">' + esc(tourText(card)) + (missing ? ' <span class="pt-muted">(' + (tourEnded(card) ? 'This run has ended, so there is nothing to show here now.' : 'That part of the screen is not showing right now.') + ')</span>' : '') + '</p>' + (card.rows ? '<table class="pt-tour-table"><thead><tr>' + card.columns.map(function (c) { return '<th scope="col">' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' + card.rows.map(function (row) { return '<tr>' + row.map(function (c, i) { return i ? '<td>' + esc(c) + '</td>' : '<th scope="row">' + esc(c) + '</th>'; }).join('') + '</tr>'; }).join('') + '</tbody></table><p>' + esc(card.after) + '</p>' : '') + '</div>' +
+      '<p id="pt-tour-text">' + esc(tourText(card)) + (missing ? ' <span class="pt-muted">(' + (tourEnded(card) ? 'This run has ended, so there is nothing to show here now.' : 'That part of the screen is not showing right now.') + ')</span>' : '') + '</p>' +
+      (card.lines ? card.lines.map(function (l) { return '<p class="pt-tour-line"><b>' + esc(l[0]) + '</b> ' + esc(l[1]) + '</p>'; }).join('') : '') + (card.rows ? '<table class="pt-tour-table"><thead><tr>' + card.columns.map(function (c) { return '<th scope="col">' + esc(c) + '</th>'; }).join('') + '</tr></thead><tbody>' + card.rows.map(function (row) { return '<tr>' + row.map(function (c, i) { return i ? '<td>' + esc(c) + '</td>' : '<th scope="row">' + esc(c) + '</th>'; }).join('') + '</tr>'; }).join('') + '</tbody></table><p>' + esc(card.after) + '</p>' : '') + '</div>' +
       '<div class="pt-tour-nav">' + (main
         ? (tour.step > 0 ? '<button type="button" class="pt-action" data-act="tour-back">Back</button>' : '') +
           '<button type="button" class="pt-action pt-primary" id="pt-tour-next" data-act="tour-next">' + (last ? 'Done' : 'Next') + '</button>'
